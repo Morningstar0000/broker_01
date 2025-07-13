@@ -1,27 +1,28 @@
 "use client"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { getCurrentUser, updateProfile } from "@/app/actions/auth"
-import { redirect } from "next/navigation"
+import { updateProfile } from "@/app/actions/auth"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle, AlertCircle, Loader2 } from "lucide-react"
 import { useActionState } from "react"
 import { format } from "date-fns"
+import type { User } from "@supabase/supabase-js"
+import type { Profile } from "@/lib/supabase"
 
-export default async function ProfilePage() {
-  const { user, profile } = await getCurrentUser()
+interface ProfilePageProps {
+  user: User
+  profile: Profile
+}
 
-  if (!user || !profile) {
-    redirect("/login")
-  }
-
+export default function ProfilePage({ user, profile }: ProfilePageProps) {
   const initialState = {
     success: false,
     error: null,
     message: null,
-    profile: profile,
+    profile: profile, // Initialize with the passed profile
   }
 
   const [state, formAction, isPending] = useActionState(updateProfile, initialState)
