@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, useCallback } from "react" // Import useCallback
 import { createBrowserClient } from "@supabase/ssr"
 import type { User } from "@supabase/supabase-js"
 import type { Profile } from "@/lib/supabase"
@@ -30,22 +30,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
 
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchProfile(session.user.id)
-      } else {
-        setLoading(false)
+  // Memoize fetchProfile to ensure it's stable across renders
+  const fetchProfile = useCallback(
+    async (userId: string) => {
+      console.log("AuthProvider - Fetching profile for userId:", userId)
+      try {
+        const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
+
+        if (!error && data) {
+          setProfile(data)
+          console.log("AuthProvider - Profile fetched successfully:", data ? data.id : "No data")
+        } else {
+          setProfile(null) // Clear profile if not found or error
+          console.error("AuthProvider - Error or no data fetching profile:", error || "No data")
+        }
+      } catch (error) {
+        console.error("AuthProvider - Unexpected error fetching profile:", error)
+        setProfile(null) // Ensure profile is null on unexpected error
       }
+    },
+    [supabase],
+  ) // Dependency on supabase client
+
+  useEffect(() => {
+    const handleAuth = async () => {
+      setLoading(true) // Ensure loading is true at the start of auth check
+
+      // Get initial session
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
+
+      if (session?.user) {
+        await fetchProfile(session.user.id) // Await profile fetch for initial load
+      } else {
+        setProfile(null) // Clear profile if no user
+      }
+      setLoading(false) // Set loading to false only after initial session and profile are handled
       console.log(
-        "AuthProvider - Initial session check. User:",
+        "AuthProvider - Initial session check completed. User:",
         session?.user?.id,
         "Profile:",
-        profile ? "Exists" : "Null",
+        profile ? "Exists" : "Null", // Note: 'profile' here might still be the old state before setProfile updates
       )
-    })
+    }
+
+    handleAuth() // Call the async function immediately
 
     // Listen for auth changes
     const {
@@ -58,30 +89,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await fetchProfile(session.user.id)
       } else {
         setProfile(null)
-        setLoading(false)
+        setLoading(false) // Set loading to false if user logs out
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase.auth])
-
-  const fetchProfile = async (userId: string) => {
-    console.log("AuthProvider - Fetching profile for userId:", userId)
-    try {
-      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
-
-      if (!error && data) {
-        setProfile(data)
-        console.log("AuthProvider - Profile fetched successfully:", data ? data.id : "No data")
-      }
-    } catch (error) {
-      console.error("AuthProvider - Error fetching profile:", error)
-      console.error("Error fetching profile:", error)
-    } finally {
-      setLoading(false)
-      console.log("AuthProvider - Finished fetching profile. Loading:", false)
-    }
-  }
+  }, [supabase.auth, fetchProfile]) // Add fetchProfile to dependencies
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()

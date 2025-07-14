@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, Upload, CheckCircle, AlertCircle, Edit } from "lucide-react" // Import Edit icon
+import { Loader2, Upload, CheckCircle, AlertCircle, Edit } from "lucide-react"
 import { uploadAvatar } from "@/app/actions/auth"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
@@ -26,7 +26,7 @@ export default function AvatarUpload({ currentAvatarUrl, firstName, lastName }: 
 
   const getInitials = (fName?: string, lName?: string) => {
     if (!fName || !lName) return "U"
-    return `${fName.charAt(0)}${fName.charAt(0)}`.toUpperCase() // Fixed to use first name initial twice for consistency
+    return `${fName.charAt(0)}${lName.charAt(0)}`.toUpperCase()
   }
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
