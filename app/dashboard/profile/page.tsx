@@ -1,11 +1,13 @@
 "use client"
 
+import Link from "next/link" // Import Link
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button" // Import Button
 import { format } from "date-fns"
 import type { User } from "@supabase/supabase-js"
 import type { Profile } from "@/lib/supabase"
-import AvatarUpload from "@/components/profile/AvatarUpload" // Import the new component
+import AvatarUpload from "@/components/profile/AvatarUpload"
 
 interface ProfilePageProps {
   user: User
@@ -13,15 +15,6 @@ interface ProfilePageProps {
 }
 
 export default function ProfilePage({ user, profile }: ProfilePageProps) {
-  // No useActionState needed as fields are read-only
-  // const initialState = {
-  //   success: false,
-  //   error: null,
-  //   message: null,
-  //   profile: profile,
-  // }
-  // const [state, formAction, isPending] = useActionState(updateProfile, initialState)
-
   return (
     <div className="min-h-screen bg-slate-900 p-4 md:p-6">
       <main className="container mx-auto max-w-3xl">
@@ -41,22 +34,6 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
                 lastName={profile.last_name}
               />
             </div>
-
-            {/* No message alerts for general profile updates as they are read-only */}
-            {/* {state?.message && (
-            <Alert
-              className={`mb-4 ${state.success ? "border-green-500 bg-green-500/10" : "border-red-500 bg-red-500/10"}`}
-            >
-              {state.success ? (
-                <CheckCircle className="h-4 w-4 text-green-500" />
-              ) : (
-                <AlertCircle className="h-4 w-4 text-red-500" />
-              )}
-              <AlertDescription className={state.success ? "text-green-400" : "text-red-400"}>
-                {state.message}
-              </AlertDescription>
-            </Alert>
-          )} */}
 
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -122,17 +99,10 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
                 </div>
               </div>
 
-              {/* Removed the Save Changes button as fields are read-only */}
-              {/* <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isPending}>
-              {isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving Changes...
-                </>
-              ) : (
-                "Save Changes"
-              )}
-            </Button> */}
+              {/* Back to Dashboard Button */}
+              <Link href="/dashboard" className="block">
+                <Button className="w-full bg-blue-600 hover:bg-blue-700">Back to Dashboard</Button>
+              </Link>
             </div>
           </CardContent>
         </Card>

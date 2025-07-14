@@ -20,11 +20,10 @@ export default function DashboardNav() {
 
   const handleLogout = async () => {
     try {
-      const result = await authSignOut() // Use signOut from useAuth
-      if (result.success) {
-        router.push("/")
-        router.refresh()
-      }
+      await authSignOut() // Use signOut from useAuth
+      // After successful sign out, redirect to home page
+      router.push("/")
+      // No need for router.refresh() here, as the push will handle navigation
     } catch (error) {
       console.error("Logout error:", error)
     }
@@ -88,7 +87,7 @@ export default function DashboardNav() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src="/placeholder-user.jpg" alt="User" />
+                  <AvatarImage src={profile?.avatar_url || undefined} alt="User" />
                   <AvatarFallback className="bg-blue-600 text-white">
                     {getInitials(profile?.first_name, profile?.last_name)}
                   </AvatarFallback>

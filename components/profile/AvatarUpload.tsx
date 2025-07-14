@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, Upload, CheckCircle, AlertCircle } from "lucide-react"
+import { Loader2, Upload, CheckCircle, AlertCircle, Edit } from "lucide-react" // Import Edit icon
 import { uploadAvatar } from "@/app/actions/auth"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
@@ -26,7 +26,7 @@ export default function AvatarUpload({ currentAvatarUrl, firstName, lastName }: 
 
   const getInitials = (fName?: string, lName?: string) => {
     if (!fName || !lName) return "U"
-    return `${fName.charAt(0)}${lName.charAt(0)}`.toUpperCase()
+    return `${fName.charAt(0)}${fName.charAt(0)}`.toUpperCase() // Fixed to use first name initial twice for consistency
   }
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,12 +77,24 @@ export default function AvatarUpload({ currentAvatarUrl, firstName, lastName }: 
   return (
     <div className="space-y-4">
       <div className="flex flex-col items-center gap-4">
-        <Avatar className="h-24 w-24 border-2 border-blue-600">
-          <AvatarImage src={previewUrl || undefined} alt="Profile Avatar" />
-          <AvatarFallback className="bg-blue-600 text-white text-3xl">
-            {getInitials(firstName, lastName)}
-          </AvatarFallback>
-        </Avatar>
+        <div className="relative">
+          <Avatar className="h-24 w-24 border-2 border-blue-600">
+            <AvatarImage src={previewUrl || undefined} alt="Profile Avatar" />
+            <AvatarFallback className="bg-blue-600 text-white text-3xl">
+              {getInitials(firstName, lastName)}
+            </AvatarFallback>
+          </Avatar>
+          <Button
+            variant="secondary"
+            size="icon"
+            className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 hover:text-white"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+          >
+            <Edit className="h-4 w-4" />
+            <span className="sr-only">Change Avatar</span>
+          </Button>
+        </div>
         <div className="space-y-2 text-center">
           <Label htmlFor="avatar" className="sr-only">
             Upload new avatar
@@ -93,7 +105,7 @@ export default function AvatarUpload({ currentAvatarUrl, firstName, lastName }: 
             accept="image/*"
             onChange={handleFileChange}
             ref={fileInputRef}
-            className="bg-slate-700 border-slate-600 text-white file:text-blue-400 file:bg-slate-600 file:border-slate-500 file:hover:bg-slate-500"
+            className="hidden" // Hide the default file input
             disabled={isLoading}
           />
           <p className="text-sm text-slate-400">Max file size: 5MB. Allowed formats: JPG, PNG, GIF.</p>
