@@ -39,6 +39,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setLoading(false)
       }
+      console.log(
+        "AuthProvider - Initial session check. User:",
+        session?.user?.id,
+        "Profile:",
+        profile ? "Exists" : "Null",
+      )
     })
 
     // Listen for auth changes
@@ -46,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null)
+      console.log("AuthProvider - Auth state changed. Event:", event, "User:", session?.user?.id)
 
       if (session?.user) {
         await fetchProfile(session.user.id)
@@ -59,16 +66,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase.auth])
 
   const fetchProfile = async (userId: string) => {
+    console.log("AuthProvider - Fetching profile for userId:", userId)
     try {
       const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
 
       if (!error && data) {
         setProfile(data)
+        console.log("AuthProvider - Profile fetched successfully:", data ? data.id : "No data")
       }
     } catch (error) {
+      console.error("AuthProvider - Error fetching profile:", error)
       console.error("Error fetching profile:", error)
     } finally {
       setLoading(false)
+      console.log("AuthProvider - Finished fetching profile. Loading:", false)
     }
   }
 

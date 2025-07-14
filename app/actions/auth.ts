@@ -435,3 +435,85 @@ export async function updateProfile(formData: FormData) {
     }
   }
 }
+
+export async function uploadAvatar(formData: FormData) {
+  const cookieStore = cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options: any) {
+          cookieStore.set({ name, value, ...options })
+        },
+        remove(name: string, options: any) {
+          cookieStore.set({ name, value: "", ...options })
+        },
+      },
+    },
+  )
+
+  const file = formData.get("avatar") as File
+
+  if (!file || file.size === 0) {
+    return { success: false, error: "No file provided." }
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    return { success: false, error: "User not authenticated." }
+  }
+
+  const fileExt = file.name.split(".").pop()
+  const fileName = `${user.id}/${Date.now()}.${fileExt}` // Store in user-specific folder
+  const filePath = fileName
+
+  try {
+    // Upload file to Supabase storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("avatars") // Use your bucket name
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: true, // Overwrite if file with same path exists
+      })
+
+    if (uploadError) {
+      console.error("Supabase storage upload error:", uploadError)
+      return { success: false, error: `Failed to upload avatar: ${uploadError.message}` }
+    }
+
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage.from("avatars").getPublicUrl(filePath)
+    const publicUrl = publicUrlData.publicUrl
+
+    // Update user's profile with the new avatar URL
+    const { data: profileData, error: profileError } = await supabase
+      .from("profiles")
+      .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+      .eq("id", user.id)
+      .select()
+      .single()
+
+    if (profileError) {
+      console.error("Profile update error after avatar upload:", profileError)
+      return { success: false, error: `Failed to update profile with avatar URL: ${profileError.message}` }
+    }
+
+    revalidatePath("/dashboard/profile")
+    revalidatePath("/dashboard") // Revalidate dashboard to update nav avatar
+    return { success: true, message: "Avatar updated successfully!", profile: profileData as Profile }
+  } catch (error) {
+    console.error("Unexpected error in uploadAvatar:", error)
+    return {
+      success: false,
+      error: `An unexpected error occurred: ${error instanceof Error ? error.message : "Unknown error"}`,
+    }
+  }
+}

@@ -15,6 +15,7 @@ export interface Profile {
   account_balance: number
   created_at: string
   updated_at: string
+  avatar_url?: string
 }
 
 export interface UserSession {

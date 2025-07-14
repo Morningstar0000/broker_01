@@ -62,6 +62,10 @@ export async function middleware(request: NextRequest) {
 
     const pathname = request.nextUrl.pathname
     console.log("Middleware - Path:", pathname)
+    console.log("Middleware - Request URL:", request.url)
+    console.log("Middleware - User ID:", user?.id || "N/A")
+    console.log("Middleware - User Email:", user?.email || "N/A")
+    console.log("Middleware - Email Confirmed At:", user?.email_confirmed_at || "N/A")
     console.log("Middleware - User:", user ? `${user.id} (${user.email})` : "No user")
     console.log("Middleware - Email confirmed:", user?.email_confirmed_at ? "Yes" : "No")
 
@@ -74,6 +78,7 @@ export async function middleware(request: NextRequest) {
     // Protect dashboard routes
     if (pathname.startsWith("/dashboard")) {
       if (!user || error) {
+        console.log("Middleware - Dashboard access denied: No user or error. User:", user?.id, "Error:", error?.message)
         console.log("Middleware - Redirecting to login (no user)")
         const loginUrl = new URL("/login", request.url)
         return NextResponse.redirect(loginUrl)
@@ -81,6 +86,7 @@ export async function middleware(request: NextRequest) {
 
       // Check if email is confirmed
       if (!user.email_confirmed_at) {
+        console.log("Middleware - Dashboard access denied: Email not confirmed. User:", user?.id)
         console.log("Middleware - Redirecting to login (email not confirmed)")
         const loginUrl = new URL("/login", request.url)
         loginUrl.searchParams.set("message", "Please confirm your email before accessing the dashboard")
@@ -91,6 +97,7 @@ export async function middleware(request: NextRequest) {
     // Redirect authenticated users away from auth pages
     if (pathname === "/login" || pathname === "/signup") {
       if (user && !error && user.email_confirmed_at) {
+        console.log("Middleware - Redirecting authenticated user from auth page. User:", user?.id)
         console.log("Middleware - Redirecting to dashboard (user authenticated)")
         const dashboardUrl = new URL("/dashboard", request.url)
         return NextResponse.redirect(dashboardUrl)
