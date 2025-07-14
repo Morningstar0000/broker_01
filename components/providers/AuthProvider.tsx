@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useEffect, useState, useCallback } from "react" // Import useCallback
+import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { createBrowserClient } from "@supabase/ssr"
 import type { User } from "@supabase/supabase-js"
 import type { Profile } from "@/lib/supabase"
@@ -30,71 +30,79 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
 
-  // Memoize fetchProfile to ensure it's stable across renders
-  const fetchProfile = useCallback(
+  // Memoize fetchUserProfile to ensure it's stable across renders
+  const fetchUserProfile = useCallback(
     async (userId: string) => {
-      console.log("AuthProvider - Fetching profile for userId:", userId)
+      console.log("AuthProvider - fetchUserProfile called for userId:", userId)
       try {
         const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
-
         if (!error && data) {
-          setProfile(data)
-          console.log("AuthProvider - Profile fetched successfully:", data ? data.id : "No data")
+          setProfile(data) // Set the profile state
+          console.log("AuthProvider - Profile fetched and set:", data.id)
+          return data // Return the fetched profile data
         } else {
           setProfile(null) // Clear profile if not found or error
-          console.error("AuthProvider - Error or no data fetching profile:", error || "No data")
+          console.error("AuthProvider - Error or no data fetching profile:", error?.message || "No data")
+          return null
         }
       } catch (error) {
-        console.error("AuthProvider - Unexpected error fetching profile:", error)
+        console.error("AuthProvider - Unexpected error in fetchUserProfile:", error)
         setProfile(null) // Ensure profile is null on unexpected error
+        return null
       }
     },
     [supabase],
   ) // Dependency on supabase client
 
   useEffect(() => {
-    const handleAuth = async () => {
-      setLoading(true) // Ensure loading is true at the start of auth check
+    const initializeAuth = async () => {
+      setLoading(true) // Start loading
 
-      // Get initial session
+      // 1. Get initial session
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+      console.log("AuthProvider - Initial session check. User:", currentUser?.id)
 
-      if (session?.user) {
-        await fetchProfile(session.user.id) // Await profile fetch for initial load
+      let currentProfileData: Profile | null = null // Use a local variable to hold the fetched profile
+      if (currentUser) {
+        // 2. Fetch profile if user exists and await its completion
+        currentProfileData = await fetchUserProfile(currentUser.id)
       } else {
-        setProfile(null) // Clear profile if no user
+        setProfile(null) // Ensure profile is null if no user
       }
-      setLoading(false) // Set loading to false only after initial session and profile are handled
+
+      setLoading(false) // End loading only after both user and profile are handled
       console.log(
-        "AuthProvider - Initial session check completed. User:",
-        session?.user?.id,
+        "AuthProvider - Initialization complete. User:",
+        currentUser?.id,
         "Profile:",
-        profile ? "Exists" : "Null", // Note: 'profile' here might still be the old state before setProfile updates
+        currentProfileData ? "Exists" : "Null", // Log the local variable for accuracy
       )
     }
 
-    handleAuth() // Call the async function immediately
+    initializeAuth() // Call the async function immediately
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null)
       console.log("AuthProvider - Auth state changed. Event:", event, "User:", session?.user?.id)
+      const changedUser = session?.user ?? null
+      setUser(changedUser)
 
-      if (session?.user) {
-        await fetchProfile(session.user.id)
+      if (changedUser) {
+        await fetchUserProfile(changedUser.id) // Await profile fetch on auth change
       } else {
         setProfile(null)
-        setLoading(false) // Set loading to false if user logs out
+        setLoading(false) // If user signs out, stop loading
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase.auth, fetchProfile]) // Add fetchProfile to dependencies
+  }, [supabase.auth, fetchUserProfile]) // Dependencies for useEffect
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
