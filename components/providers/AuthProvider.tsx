@@ -25,12 +25,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  // Memoize fetchUserProfile to ensure it's stable across renders
+  let supabase: ReturnType<typeof createBrowserClient>
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("AuthProvider: ERROR - Supabase environment variables are not set correctly!")
+    console.error("AuthProvider: NEXT_PUBLIC_SUPABASE_URL:", supabaseUrl)
+    console.error("AuthProvider: NEXT_PUBLIC_SUPABASE_ANON_KEY:", supabaseAnonKey)
+  } else {
+    supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
+    console.log("AuthProvider: Supabase client initialized successfully.")
+  }
+
   const fetchUserProfile = useCallback(
     async (userId: string) => {
       console.log("AuthProvider - fetchUserProfile: Attempting to fetch profile for userId:", userId)
@@ -61,56 +69,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initializeAuth = async () => {
       console.log("AuthProvider - initializeAuth: Starting initial authentication check.")
-      setLoading(true) // Start loading
+      setLoading(false) // Start loading
+
+      let session = null
+      let sessionError = null
 
       try {
-        // 1. Get initial session
+        console.log("AuthProvider - initializeAuth: Calling supabase.auth.getSession()...")
         const {
-          data: { session },
-          error: sessionError,
+          data: { session: fetchedSession },
+          error: fetchedError,
         } = await supabase.auth.getSession()
-
-        if (sessionError) {
-          console.error("AuthProvider - initializeAuth: Error getting session:", sessionError.message)
-        }
+        session = fetchedSession
+        sessionError = fetchedError
         console.log(
-          "AuthProvider - initializeAuth: getSession result - Session user ID:",
+          "AuthProvider - initializeAuth: getSession returned. Session user ID:",
           session?.user?.id || "null",
           "Error:",
           sessionError?.message || "none",
         )
-
-        const currentUser = session?.user ?? null
-        setUser(currentUser)
-        console.log("AuthProvider - initializeAuth: Initial user set to:", currentUser?.id || "null")
-
-        if (currentUser) {
-          // Fetch profile if user exists, but don't block the initial loading state for it.
-          await fetchUserProfile(currentUser.id)
-        } else {
-          setProfile(null) // Ensure profile is null if no user
+        if (sessionError) {
+          console.error("AuthProvider - initializeAuth: getSession error details:", sessionError)
         }
       } catch (e) {
-        console.error("AuthProvider - initializeAuth: Caught unexpected error during initialization:", e)
+        console.error("AuthProvider - initializeAuth: Caught unexpected error during getSession call:", e)
+        sessionError = e // Store the error for later inspection if needed
       } finally {
-        setLoading(false) // Ensure loading is always set to false
-        console.log("AuthProvider - initializeAuth: Loading set to false. UI should unblock.")
+        // This finally block ensures setLoading(false) is always called
+        // Adding a small timeout here as a diagnostic to see if it unblocks the UI
+        // This is NOT a permanent solution.
+        setTimeout(() => {
+          setLoading(false)
+          console.log("AuthProvider - initializeAuth: Loading set to false. UI should unblock.")
+        }, 50) // Small delay
+      }
+
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+      console.log("AuthProvider - initializeAuth: Initial user set to:", currentUser?.id || "null")
+
+      if (currentUser) {
+        await fetchUserProfile(currentUser.id)
+      } else {
+        setProfile(null) // Ensure profile is null if no user
       }
 
       console.log(
         "AuthProvider - initializeAuth: Final state after initial check. User:",
-        user?.id, // Use state variable for logging final state
+        currentUser?.id,
         "Profile:",
-        profile ? "Exists" : "Null", // Use state variable for logging final state
+        profile ? "Exists" : "Null",
       )
     }
 
-    initializeAuth()
+    if (supabase) {
+      initializeAuth()
+    } else {
+      setLoading(false)
+      console.log("AuthProvider: Set loading to false due to missing Supabase env vars.")
+    }
 
     // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const subscription = supabase?.auth.onAuthStateChange(async (event, session) => {
       console.log("AuthProvider - onAuthStateChange: Event:", event, "User:", session?.user?.id || "null")
       const changedUser = session?.user ?? null
       setUser(changedUser)
@@ -121,14 +141,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(null)
         setLoading(false) // If user logs out, ensure loading is false
       }
-    })
+    }).data?.subscription
 
-    return () => subscription.unsubscribe()
-  }, [supabase.auth, fetchUserProfile]) // Removed 'profile' from dependencies
+    return () => subscription?.unsubscribe()
+  }, [supabase, fetchUserProfile])
 
   const handleSignOut = async () => {
     console.log("AuthProvider - handleSignOut: Attempting to sign out.")
-    await supabase.auth.signOut()
+    await supabase?.auth.signOut()
     console.log("AuthProvider - handleSignOut: Sign out initiated.")
   }
 
