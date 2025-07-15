@@ -63,39 +63,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("AuthProvider - initializeAuth: Starting initial authentication check.")
       setLoading(true) // Start loading
 
-      // Get initial session
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession()
+      try {
+        // 1. Get initial session
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession()
 
-      if (sessionError) {
-        console.error("AuthProvider - initializeAuth: Error getting session:", sessionError.message)
-      }
+        if (sessionError) {
+          console.error("AuthProvider - initializeAuth: Error getting session:", sessionError.message)
+        }
+        console.log(
+          "AuthProvider - initializeAuth: getSession result - Session user ID:",
+          session?.user?.id || "null",
+          "Error:",
+          sessionError?.message || "none",
+        )
 
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-      console.log("AuthProvider - initializeAuth: Initial user set to:", currentUser?.id || "null")
+        const currentUser = session?.user ?? null
+        setUser(currentUser)
+        console.log("AuthProvider - initializeAuth: Initial user set to:", currentUser?.id || "null")
 
-      // Set loading to false immediately after setting the user.
-      // Profile fetching can happen in parallel or be awaited if critical for initial render.
-      // For now, we prioritize unblocking the UI.
-      setLoading(false)
-      console.log("AuthProvider - initializeAuth: Loading set to false. UI should unblock.")
-
-      if (currentUser) {
-        // Fetch profile if user exists, but don't block the initial loading state for it.
-        // The components consuming `profile` should handle its potential `null` state.
-        await fetchUserProfile(currentUser.id) // Still await here to ensure profile is set before subsequent renders
-      } else {
-        setProfile(null) // Ensure profile is null if no user
+        if (currentUser) {
+          // Fetch profile if user exists, but don't block the initial loading state for it.
+          await fetchUserProfile(currentUser.id)
+        } else {
+          setProfile(null) // Ensure profile is null if no user
+        }
+      } catch (e) {
+        console.error("AuthProvider - initializeAuth: Caught unexpected error during initialization:", e)
+      } finally {
+        setLoading(false) // Ensure loading is always set to false
+        console.log("AuthProvider - initializeAuth: Loading set to false. UI should unblock.")
       }
 
       console.log(
         "AuthProvider - initializeAuth: Final state after initial check. User:",
-        currentUser?.id,
+        user?.id, // Use state variable for logging final state
         "Profile:",
-        profile ? "Exists" : "Null", // Note: 'profile' here might still be the old state before setProfile updates
+        profile ? "Exists" : "Null", // Use state variable for logging final state
       )
     }
 
@@ -118,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase.auth, fetchUserProfile, profile]) // Added profile to dependencies to ensure accurate logging of its state
+  }, [supabase.auth, fetchUserProfile]) // Removed 'profile' from dependencies
 
   const handleSignOut = async () => {
     console.log("AuthProvider - handleSignOut: Attempting to sign out.")

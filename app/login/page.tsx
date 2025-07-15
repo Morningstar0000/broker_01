@@ -11,10 +11,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { TrendingUp, Eye, EyeOff, AlertCircle, Loader2, Mail, CheckCircle } from "lucide-react"
 import { signIn, resendConfirmation } from "../actions/auth"
-import { useAuth } from "@/components/providers/AuthProvider" // Import useAuth
+import { useAuth } from "@/components/providers/AuthProvider"
 
 export default function LoginPage() {
-  // Add this at the very top of the component function
   console.log("LoginPage: Component rendering.")
 
   const [showPassword, setShowPassword] = useState(false)
@@ -26,10 +25,8 @@ export default function LoginPage() {
   const [userEmail, setUserEmail] = useState("")
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, loading: authLoading } = useAuth() // Use useAuth hook
+  const { user, loading: authLoading } = useAuth()
 
-  // Inside the useEffect, add more detailed logs
-  // Replace the existing useEffect with this updated version
   useEffect(() => {
     console.log("LoginPage: useEffect triggered.")
     const message = searchParams.get("message")
@@ -65,29 +62,23 @@ export default function LoginPage() {
     setRequiresConfirmation(false)
 
     const email = formData.get("email") as string
-    // After `const email = formData.get("email") as string`
     console.log("LoginPage: handleSubmit initiated for email:", email)
     setUserEmail(email)
 
     try {
       console.log("Starting login process...")
       const result = await signIn(formData)
-      // After `const result = await signIn(formData)`
       console.log("LoginPage: signIn result:", result)
 
       if (result.success) {
-        // Inside the `if (result.success)` block
         console.log("LoginPage: Login successful, preparing redirect to dashboard.")
-        console.log("Login successful, redirecting to dashboard...")
         setSuccess("Login successful! Redirecting...")
 
-        // Small delay to show success message
         setTimeout(() => {
           router.push("/dashboard")
           router.refresh()
         }, 1000)
       } else {
-        // Inside the `else` block
         console.log(
           "LoginPage: Login failed. Error:",
           result.error,
@@ -128,9 +119,15 @@ export default function LoginPage() {
     }
   }
 
-  // Show loading state while AuthProvider is initializing
+  // Show a loading indicator instead of null
   if (authLoading) {
-    return null // Or a loading spinner
+    console.log("LoginPage: AuthProvider is loading, showing spinner.")
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
+        <Loader2 className="h-12 w-12 animate-spin text-blue-400" />
+        <span className="sr-only">Loading authentication state...</span>
+      </div>
+    )
   }
 
   return (

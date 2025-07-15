@@ -10,7 +10,6 @@ import { getCurrentUser } from "../actions/auth"
 import { redirect } from "next/navigation"
 
 export default async function DashboardPage() {
-  // Add these logs at the beginning of the component function
   console.log("DashboardPage: Server Component rendering.")
   console.log("DashboardPage: Fetching current user and profile...")
   const { user, profile } = await getCurrentUser()
@@ -18,6 +17,7 @@ export default async function DashboardPage() {
 
   // If no user, redirect to login
   if (!user || !profile) {
+    console.log("DashboardPage: User or profile not found, redirecting to login.")
     redirect("/login")
   }
 
