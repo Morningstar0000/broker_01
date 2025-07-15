@@ -208,6 +208,13 @@ export async function signIn(formData: FormData) {
       password,
     })
 
+    console.log(
+      "signIn: Supabase signInWithPassword result. User:",
+      data.user?.id || "null",
+      "Error:",
+      error?.message || "none",
+    )
+
     if (error) {
       console.error("Sign in error:", error)
 
@@ -239,6 +246,13 @@ export async function signIn(formData: FormData) {
         .eq("id", data.user.id)
         .single()
 
+      console.log(
+        "signIn: Profile check result. Existing profile:",
+        existingProfile ? "Exists" : "null",
+        "Error:",
+        profileError?.message || "none",
+      )
+
       if (profileError && profileError.code !== "PGRST116") {
         // PGRST116 is "not found"
         console.error("Profile fetch error:", profileError)
@@ -255,6 +269,7 @@ export async function signIn(formData: FormData) {
           email: data.user.email || "",
           phone: userData.phone || "",
         })
+        console.log("signIn: Profile creation result (if applicable):", profile ? "Created" : "Failed")
       }
     } catch (profileError) {
       console.error("Profile handling error:", profileError)
@@ -311,6 +326,8 @@ export async function signOut() {
     const supabase = createSupabaseClient()
     const { error } = await supabase.auth.signOut()
 
+    console.log("signOut: Supabase signOut result. Error:", error?.message || "none")
+
     if (error) {
       return { success: false, error: error.message }
     }
@@ -333,6 +350,8 @@ export async function getCurrentUser() {
       error: userError,
     } = await supabase.auth.getUser()
 
+    console.log("getCurrentUser: Fetched user from auth:", user?.id || "null", "Error:", userError?.message || "none")
+
     if (userError || !user) {
       return { user: null, profile: null }
     }
@@ -342,6 +361,13 @@ export async function getCurrentUser() {
       .select("*")
       .eq("id", user.id)
       .single()
+
+    console.log(
+      "getCurrentUser: Fetched profile from DB:",
+      profile ? "Exists" : "null",
+      "Error:",
+      profileError?.message || "none",
+    )
 
     if (profileError) {
       console.error("Profile fetch error:", profileError)

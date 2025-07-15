@@ -10,7 +10,11 @@ import { getCurrentUser } from "../actions/auth"
 import { redirect } from "next/navigation"
 
 export default async function DashboardPage() {
+  // Add these logs at the beginning of the component function
+  console.log("DashboardPage: Server Component rendering.")
+  console.log("DashboardPage: Fetching current user and profile...")
   const { user, profile } = await getCurrentUser()
+  console.log("DashboardPage: Fetched user:", user?.id || "null", "Profile:", profile ? "Exists" : "null")
 
   // If no user, redirect to login
   if (!user || !profile) {

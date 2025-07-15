@@ -14,6 +14,9 @@ import { signIn, resendConfirmation } from "../actions/auth"
 import { useAuth } from "@/components/providers/AuthProvider" // Import useAuth
 
 export default function LoginPage() {
+  // Add this at the very top of the component function
+  console.log("LoginPage: Component rendering.")
+
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isResending, setIsResending] = useState(false)
@@ -25,22 +28,32 @@ export default function LoginPage() {
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth() // Use useAuth hook
 
-  // Check for URL messages and auth state
+  // Inside the useEffect, add more detailed logs
+  // Replace the existing useEffect with this updated version
   useEffect(() => {
+    console.log("LoginPage: useEffect triggered.")
     const message = searchParams.get("message")
     if (message) {
       setError(message)
+      console.log("LoginPage: URL message found:", message)
     }
 
-    // Check if user just confirmed email
     const confirmed = searchParams.get("confirmed")
     if (confirmed === "true") {
       setSuccess("Email confirmed successfully! You can now sign in.")
+      console.log("LoginPage: Email confirmed via URL param.")
     }
 
-    // If user is already authenticated and email is confirmed, redirect
+    console.log(
+      "LoginPage: Auth loading status:",
+      authLoading,
+      "User:",
+      user?.id,
+      "Email confirmed:",
+      user?.email_confirmed_at,
+    )
     if (!authLoading && user && user.email_confirmed_at) {
-      console.log("User already authenticated and confirmed, redirecting to dashboard")
+      console.log("LoginPage: User already authenticated and confirmed, redirecting to dashboard.")
       router.push("/dashboard")
     }
   }, [router, searchParams, user, authLoading])
@@ -52,14 +65,19 @@ export default function LoginPage() {
     setRequiresConfirmation(false)
 
     const email = formData.get("email") as string
+    // After `const email = formData.get("email") as string`
+    console.log("LoginPage: handleSubmit initiated for email:", email)
     setUserEmail(email)
 
     try {
       console.log("Starting login process...")
       const result = await signIn(formData)
-      console.log("Login result:", result)
+      // After `const result = await signIn(formData)`
+      console.log("LoginPage: signIn result:", result)
 
       if (result.success) {
+        // Inside the `if (result.success)` block
+        console.log("LoginPage: Login successful, preparing redirect to dashboard.")
         console.log("Login successful, redirecting to dashboard...")
         setSuccess("Login successful! Redirecting...")
 
@@ -69,6 +87,13 @@ export default function LoginPage() {
           router.refresh()
         }, 1000)
       } else {
+        // Inside the `else` block
+        console.log(
+          "LoginPage: Login failed. Error:",
+          result.error,
+          "Requires confirmation:",
+          result.requiresEmailConfirmation,
+        )
         if (result.requiresEmailConfirmation) {
           setRequiresConfirmation(true)
           setError("Please check your email and click the confirmation link before signing in.")

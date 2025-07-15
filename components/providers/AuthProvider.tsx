@@ -33,79 +33,97 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Memoize fetchUserProfile to ensure it's stable across renders
   const fetchUserProfile = useCallback(
     async (userId: string) => {
-      console.log("AuthProvider - fetchUserProfile called for userId:", userId)
+      console.log("AuthProvider - fetchUserProfile: Attempting to fetch profile for userId:", userId)
       try {
         const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
         if (!error && data) {
-          setProfile(data) // Set the profile state
-          console.log("AuthProvider - Profile fetched and set:", data.id)
-          return data // Return the fetched profile data
+          setProfile(data)
+          console.log("AuthProvider - fetchUserProfile: Profile fetched and set successfully for user:", userId)
+          return data
         } else {
-          setProfile(null) // Clear profile if not found or error
-          console.error("AuthProvider - Error or no data fetching profile:", error?.message || "No data")
+          setProfile(null)
+          console.error(
+            "AuthProvider - fetchUserProfile: Error or no data fetching profile for user:",
+            userId,
+            error?.message || "No data",
+          )
           return null
         }
       } catch (error) {
-        console.error("AuthProvider - Unexpected error in fetchUserProfile:", error)
-        setProfile(null) // Ensure profile is null on unexpected error
+        console.error("AuthProvider - fetchUserProfile: Unexpected error fetching profile for user:", userId, error)
+        setProfile(null)
         return null
       }
     },
     [supabase],
-  ) // Dependency on supabase client
+  )
 
   useEffect(() => {
     const initializeAuth = async () => {
+      console.log("AuthProvider - initializeAuth: Starting initial authentication check.")
       setLoading(true) // Start loading
 
-      // 1. Get initial session
+      // Get initial session
       const {
         data: { session },
+        error: sessionError,
       } = await supabase.auth.getSession()
+
+      if (sessionError) {
+        console.error("AuthProvider - initializeAuth: Error getting session:", sessionError.message)
+      }
+
       const currentUser = session?.user ?? null
       setUser(currentUser)
-      console.log("AuthProvider - Initial session check. User:", currentUser?.id)
+      console.log("AuthProvider - initializeAuth: Initial user set to:", currentUser?.id || "null")
 
-      let currentProfileData: Profile | null = null // Use a local variable to hold the fetched profile
+      // Set loading to false immediately after setting the user.
+      // Profile fetching can happen in parallel or be awaited if critical for initial render.
+      // For now, we prioritize unblocking the UI.
+      setLoading(false)
+      console.log("AuthProvider - initializeAuth: Loading set to false. UI should unblock.")
+
       if (currentUser) {
-        // 2. Fetch profile if user exists and await its completion
-        currentProfileData = await fetchUserProfile(currentUser.id)
+        // Fetch profile if user exists, but don't block the initial loading state for it.
+        // The components consuming `profile` should handle its potential `null` state.
+        await fetchUserProfile(currentUser.id) // Still await here to ensure profile is set before subsequent renders
       } else {
         setProfile(null) // Ensure profile is null if no user
       }
 
-      setLoading(false) // End loading only after both user and profile are handled
       console.log(
-        "AuthProvider - Initialization complete. User:",
+        "AuthProvider - initializeAuth: Final state after initial check. User:",
         currentUser?.id,
         "Profile:",
-        currentProfileData ? "Exists" : "Null", // Log the local variable for accuracy
+        profile ? "Exists" : "Null", // Note: 'profile' here might still be the old state before setProfile updates
       )
     }
 
-    initializeAuth() // Call the async function immediately
+    initializeAuth()
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("AuthProvider - Auth state changed. Event:", event, "User:", session?.user?.id)
+      console.log("AuthProvider - onAuthStateChange: Event:", event, "User:", session?.user?.id || "null")
       const changedUser = session?.user ?? null
       setUser(changedUser)
 
       if (changedUser) {
-        await fetchUserProfile(changedUser.id) // Await profile fetch on auth change
+        await fetchUserProfile(changedUser.id)
       } else {
         setProfile(null)
-        setLoading(false) // If user signs out, stop loading
+        setLoading(false) // If user logs out, ensure loading is false
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase.auth, fetchUserProfile]) // Dependencies for useEffect
+  }, [supabase.auth, fetchUserProfile, profile]) // Added profile to dependencies to ensure accurate logging of its state
 
   const handleSignOut = async () => {
+    console.log("AuthProvider - handleSignOut: Attempting to sign out.")
     await supabase.auth.signOut()
+    console.log("AuthProvider - handleSignOut: Sign out initiated.")
   }
 
   return (
