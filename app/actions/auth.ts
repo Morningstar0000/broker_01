@@ -346,6 +346,7 @@ export async function signOut() {
     console.log("Auth Action - signOut: Supabase signOut result. Error:", error?.message || "none")
 
     if (error) {
+      console.error("Auth Action - signOut: Supabase signOut failed:", error.message)
       return { success: false, error: error.message }
     }
 
@@ -377,6 +378,7 @@ export async function getCurrentUser() {
     )
 
     if (userError || !user) {
+      console.log("Auth Action - getCurrentUser: No user found or user error. Returning null for user and profile.")
       return { user: null, profile: null }
     }
 
@@ -398,6 +400,7 @@ export async function getCurrentUser() {
       return { user, profile: null }
     }
 
+    console.log("Auth Action - getCurrentUser: Returning user and profile:", { user: user.id, profile: profile })
     return { user, profile }
   } catch (error) {
     console.error("Auth Action - getCurrentUser: Unexpected error:", error)

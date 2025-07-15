@@ -30,15 +30,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   let supabase: ReturnType<typeof createBrowserClient>
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("AuthProvider: ERROR - Supabase environment variables are not set correctly!")
-    console.error("AuthProvider: NEXT_PUBLIC_SUPABASE_URL:", supabaseUrl)
-    console.error("AuthProvider: NEXT_PUBLIC_SUPABASE_ANON_KEY:", supabaseAnonKey)
-  } else {
-    supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
-    console.log("AuthProvider: Supabase client initialized successfully.")
-  }
-
   const fetchUserProfile = useCallback(
     async (userId: string) => {
       console.log("AuthProvider - fetchUserProfile: Attempting to fetch profile for userId:", userId)
@@ -46,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
         if (!error && data) {
           setProfile(data)
-          console.log("AuthProvider - fetchUserProfile: Profile fetched and set successfully for user:", userId)
+          console.log("AuthProvider - fetchUserProfile: Profile fetched and set successfully for user:", userId, data)
           return data
         } else {
           setProfile(null)
@@ -67,9 +58,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   useEffect(() => {
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("AuthProvider: ERROR - Supabase environment variables are not set correctly!")
+      console.error("AuthProvider: NEXT_PUBLIC_SUPABASE_URL:", supabaseUrl)
+      console.error("AuthProvider: NEXT_PUBLIC_SUPABASE_ANON_KEY:", supabaseAnonKey)
+      // If env vars are missing, we can't proceed with Supabase operations
+      // Set loading to false immediately and return
+      setLoading(false)
+      return
+    }
+
+    supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
+    console.log("AuthProvider: Supabase client initialized successfully.")
+
     const initializeAuth = async () => {
       console.log("AuthProvider - initializeAuth: Starting initial authentication check.")
-      setLoading(false) // Start loading
+      setLoading(true) // Start loading
 
       let session = null
       let sessionError = null
@@ -95,13 +99,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error("AuthProvider - initializeAuth: Caught unexpected error during getSession call:", e)
         sessionError = e // Store the error for later inspection if needed
       } finally {
-        // This finally block ensures setLoading(false) is always called
-        // Adding a small timeout here as a diagnostic to see if it unblocks the UI
-        // This is NOT a permanent solution.
-        setTimeout(() => {
-          setLoading(false)
-          console.log("AuthProvider - initializeAuth: Loading set to false. UI should unblock.")
-        }, 50) // Small delay
+        setLoading(false) // Ensure loading is always set to false
+        console.log("AuthProvider - initializeAuth: Loading set to false. UI should unblock.")
       }
 
       const currentUser = session?.user ?? null
@@ -118,19 +117,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         "AuthProvider - initializeAuth: Final state after initial check. User:",
         currentUser?.id,
         "Profile:",
-        profile ? "Exists" : "Null",
+        profile ? "Exists" : "Null", // Note: 'profile' here might be stale if fetchUserProfile is async
       )
     }
 
-    if (supabase) {
-      initializeAuth()
-    } else {
-      setLoading(false)
-      console.log("AuthProvider: Set loading to false due to missing Supabase env vars.")
-    }
+    initializeAuth()
 
     // Listen for auth changes
-    const subscription = supabase?.auth.onAuthStateChange(async (event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("AuthProvider - onAuthStateChange: Event:", event, "User:", session?.user?.id || "null")
       const changedUser = session?.user ?? null
       setUser(changedUser)
@@ -140,16 +136,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null)
         setLoading(false) // If user logs out, ensure loading is false
+        console.log("AuthProvider - onAuthStateChange: User signed out, profile cleared, loading set to false.")
       }
-    }).data?.subscription
+    })
 
-    return () => subscription?.unsubscribe()
-  }, [supabase, fetchUserProfile])
+    return () => subscription.unsubscribe()
+  }, [supabaseUrl, supabaseAnonKey, fetchUserProfile])
 
   const handleSignOut = async () => {
     console.log("AuthProvider - handleSignOut: Attempting to sign out.")
-    await supabase?.auth.signOut()
-    console.log("AuthProvider - handleSignOut: Sign out initiated.")
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.error("AuthProvider - handleSignOut: Supabase signOut error:", error.message)
+        throw error // Re-throw to be caught by the component calling signOut
+      }
+      console.log("AuthProvider - handleSignOut: Supabase signOut successful.")
+      // The onAuthStateChange listener should handle setting user/profile to null and redirecting
+    } catch (error) {
+      console.error("AuthProvider - handleSignOut: Caught error during signOut:", error)
+    }
   }
 
   return (

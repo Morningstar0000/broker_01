@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
 
       // Check if user profile exists, create if not
       try {
+        console.log("Auth callback - Checking for existing profile for user:", data.user.id)
         const { data: existingProfile, error: profileCheckError } = await supabase
           .from("profiles")
           .select("id")
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
 
         if (profileCheckError && profileCheckError.code === "PGRST116") {
           // Profile doesn't exist, create it
-          console.log("Auth callback - Creating profile for confirmed user...")
+          console.log("Auth callback - Profile not found (PGRST116), creating profile for confirmed user...")
           const userData = data.user.user_metadata
 
           const profileData = {
@@ -82,10 +83,12 @@ export async function GET(request: NextRequest) {
           if (profileError) {
             console.error("Auth callback - Profile creation error:", profileError)
           } else {
-            console.log("Auth callback - Profile created successfully")
+            console.log("Auth callback - Profile created successfully for user:", data.user.id)
           }
         } else if (existingProfile) {
-          console.log("Auth callback - Profile already exists")
+          console.log("Auth callback - Profile already exists for user:", data.user.id)
+        } else if (profileCheckError) {
+          console.error("Auth callback - Unexpected profile check error:", profileCheckError)
         }
       } catch (profileError) {
         console.error("Auth callback - Error handling profile:", profileError)
@@ -95,7 +98,7 @@ export async function GET(request: NextRequest) {
       const response = NextResponse.redirect(new URL("/auth/success", request.url))
       return response
     } catch (error) {
-      console.error("Auth callback - Unexpected error:", error)
+      console.error("Auth callback - Unexpected error during session exchange:", error)
       return NextResponse.redirect(`${origin}/auth/auth-code-error`)
     }
   }

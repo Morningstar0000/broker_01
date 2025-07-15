@@ -15,6 +15,8 @@ interface ProfilePageProps {
 }
 
 export default function ProfilePage({ user, profile }: ProfilePageProps) {
+  console.log("ProfilePage: Received props - User:", user?.id, "Profile:", profile)
+
   return (
     <div className="min-h-screen bg-slate-900 p-4 md:p-6">
       <main className="container mx-auto max-w-3xl">

@@ -18,14 +18,18 @@ export default function DashboardNav() {
   const { user, profile, loading, signOut: authSignOut } = useAuth() // Use the useAuth hook
   const router = useRouter()
 
+  console.log("DashboardNav: Auth state - User:", user?.id, "Profile:", profile, "Loading:", loading)
+
   const handleLogout = async () => {
+    console.log("DashboardNav: handleLogout initiated.")
     try {
       await authSignOut() // Use signOut from useAuth
+      console.log("DashboardNav: authSignOut completed, attempting redirect to /.")
       // After successful sign out, redirect to home page
       router.push("/")
       // No need for router.refresh() here, as the push will handle navigation
     } catch (error) {
-      console.error("Logout error:", error)
+      console.error("DashboardNav: Logout error:", error)
     }
   }
 
