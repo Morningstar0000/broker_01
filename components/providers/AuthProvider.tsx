@@ -20,15 +20,45 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 })
 
+// Initialize Supabase client once outside the component to prevent re-initialization
+// This is a common pattern for client-side Supabase.
+let supabaseClientInstance: ReturnType<typeof createBrowserClient> | undefined
+
+function getSupabaseClient() {
+  if (!supabaseClientInstance) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("AuthProvider: ERROR - Supabase environment variables are not set correctly!")
+      console.error("AuthProvider: NEXT_PUBLIC_SUPABASE_URL:", supabaseUrl)
+      console.error("AuthProvider: NEXT_PUBLIC_SUPABASE_ANON_KEY:", supabaseAnonKey)
+      throw new Error("Supabase environment variables are missing.")
+    }
+    supabaseClientInstance = createBrowserClient(supabaseUrl, supabaseAnonKey)
+    console.log("AuthProvider: Supabase client initialized globally.")
+  }
+  return supabaseClientInstance
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
+  // Get the Supabase client
   let supabase: ReturnType<typeof createBrowserClient>
+  try {
+    supabase = getSupabaseClient()
+  } catch (e) {
+    console.error("AuthProvider: Failed to get Supabase client:", e)
+    // If client initialization fails, set loading to false and return
+    return (
+      <AuthContext.Provider value={{ user: null, profile: null, loading: false, signOut: async () => {} }}>
+        {children}
+      </AuthContext.Provider>
+    )
+  }
 
   const fetchUserProfile = useCallback(
     async (userId: string) => {
@@ -54,52 +84,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null
       }
     },
-    [supabase],
+    [supabase], // Dependency on supabase instance
   )
 
   useEffect(() => {
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error("AuthProvider: ERROR - Supabase environment variables are not set correctly!")
-      console.error("AuthProvider: NEXT_PUBLIC_SUPABASE_URL:", supabaseUrl)
-      console.error("AuthProvider: NEXT_PUBLIC_SUPABASE_ANON_KEY:", supabaseAnonKey)
-      // If env vars are missing, we can't proceed with Supabase operations
-      // Set loading to false immediately and return
-      setLoading(false)
-      return
-    }
-
-    supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
-    console.log("AuthProvider: Supabase client initialized successfully.")
-
     const initializeAuth = async () => {
       console.log("AuthProvider - initializeAuth: Starting initial authentication check.")
-      setLoading(true) // Start loading
+      setLoading(true) // Ensure loading is true at the start of the check
 
       let session = null
       let sessionError = null
 
       try {
         console.log("AuthProvider - initializeAuth: Calling supabase.auth.getSession()...")
-        const {
-          data: { session: fetchedSession },
-          error: fetchedError,
-        } = await supabase.auth.getSession()
-        session = fetchedSession
-        sessionError = fetchedError
-        console.log(
-          "AuthProvider - initializeAuth: getSession returned. Session user ID:",
-          session?.user?.id || "null",
-          "Error:",
-          sessionError?.message || "none",
-        )
-        if (sessionError) {
-          console.error("AuthProvider - initializeAuth: getSession error details:", sessionError)
+        // Use Promise.race to ensure setLoading(false) is called even if getSession hangs
+        const sessionPromise = supabase.auth.getSession()
+        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), 5000)) // 5-second timeout
+
+        const result = await Promise.race([sessionPromise, timeoutPromise])
+
+        if ("timeout" in result) {
+          console.warn("AuthProvider - initializeAuth: supabase.auth.getSession() timed out after 5 seconds.")
+          sessionError = new Error("Session fetch timed out.")
+        } else {
+          session = result.data.session
+          sessionError = result.error
+          console.log(
+            "AuthProvider - initializeAuth: getSession returned. Session user ID:",
+            session?.user?.id || "null",
+            "Error:",
+            sessionError?.message || "none",
+          )
+          if (sessionError) {
+            console.error("AuthProvider - initializeAuth: getSession error details:", sessionError)
+          }
         }
       } catch (e) {
         console.error("AuthProvider - initializeAuth: Caught unexpected error during getSession call:", e)
         sessionError = e // Store the error for later inspection if needed
       } finally {
-        setLoading(false) // Ensure loading is always set to false
+        // This finally block ensures setLoading(false) is always called
+        setLoading(false)
         console.log("AuthProvider - initializeAuth: Loading set to false. UI should unblock.")
       }
 
@@ -141,7 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [supabaseUrl, supabaseAnonKey, fetchUserProfile])
+  }, [supabase, fetchUserProfile]) // Added supabase to dependencies to ensure useCallback is stable
 
   const handleSignOut = async () => {
     console.log("AuthProvider - handleSignOut: Attempting to sign out.")

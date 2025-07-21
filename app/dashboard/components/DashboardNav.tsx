@@ -67,6 +67,12 @@ export default function DashboardNav() {
             <Link href="/dashboard" className="text-white hover:text-blue-400 transition-colors">
               Dashboard
             </Link>
+            <Link href="/dashboard/account-types" className="text-slate-400 hover:text-blue-400 transition-colors">
+              Account Types
+            </Link>
+            <Link href="/dashboard/investors" className="text-slate-400 hover:text-blue-400 transition-colors">
+              Investors
+            </Link>
             <Link href="/dashboard/trading" className="text-slate-400 hover:text-blue-400 transition-colors">
               Trading
             </Link>

@@ -1,24 +1,58 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { TrendingUp, DollarSign, Activity, PieChart } from "lucide-react"
+import { TrendingUp, DollarSign, Activity, PieChart, Shield, Zap, Crown } from "lucide-react"
 import TradingChart from "./components/TradingChart"
 import CurrencyPairs from "./components/CurrencyPairs"
 import RecentTrades from "./components/RecentTrades"
 import DashboardNav from "./components/DashboardNav"
-import { getCurrentUser } from "../actions/auth"
-import { redirect } from "next/navigation"
+import { useAuth } from "@/components/providers/AuthProvider"
 
-export default async function DashboardPage() {
-  console.log("DashboardPage: Server Component rendering.")
-  console.log("DashboardPage: Fetching current user and profile...")
-  const { user, profile } = await getCurrentUser()
-  console.log("DashboardPage: Fetched user:", user?.id || "null", "Profile:", profile ? "Exists" : "null")
+export default function DashboardPage() {
+  const { user, profile, loading } = useAuth()
+  const [selectedInvestor, setSelectedInvestor] = useState(null)
+  const [selectedAccountType, setSelectedAccountType] = useState(null)
 
-  // If no user, redirect to login
+  useEffect(() => {
+    // Load selected investor and account type from localStorage
+    const savedInvestor = localStorage.getItem("selectedInvestor")
+    const savedAccountType = localStorage.getItem("selectedAccountType")
+
+    if (savedInvestor) {
+      setSelectedInvestor(JSON.parse(savedInvestor))
+    }
+
+    if (savedAccountType) {
+      setSelectedAccountType(JSON.parse(savedAccountType))
+    }
+  }, [])
+
+  const getAccountIcon = (accountId: string) => {
+    switch (accountId) {
+      case "starter":
+        return <Shield className="h-6 w-6" />
+      case "professional":
+        return <Zap className="h-6 w-6" />
+      case "vip":
+        return <Crown className="h-6 w-6" />
+      default:
+        return <Shield className="h-6 w-6" />
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-400"></div>
+      </div>
+    )
+  }
+
   if (!user || !profile) {
-    console.log("DashboardPage: User or profile not found, redirecting to login.")
-    redirect("/login")
+    return null // This will be handled by middleware
   }
 
   return (
@@ -26,6 +60,63 @@ export default async function DashboardPage() {
       <DashboardNav />
 
       <main className="container mx-auto px-4 py-6">
+        {/* Account Type Banner */}
+        {selectedAccountType && (
+          <Card className={`bg-gradient-to-r ${selectedAccountType.color} border-0 mb-6`}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="text-white">{getAccountIcon(selectedAccountType.id)}</div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">{selectedAccountType.name}</h3>
+                    <p className="text-white/90 text-sm">{selectedAccountType.title}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-white">{selectedAccountType.maxLeverage}</div>
+                  <p className="text-white/90 text-xs">Max Leverage</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Selected Investor Banner */}
+        {selectedInvestor && (
+          <Card className="bg-gradient-to-r from-purple-600 to-blue-600 border-0 mb-6">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center">
+                    <span className="text-lg font-bold text-white">
+                      {selectedInvestor.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Following: {selectedInvestor.name}</h3>
+                    <p className="text-purple-100 text-sm">{selectedInvestor.title}</p>
+                    <div className="flex items-center space-x-3 mt-1">
+                      <span className="text-purple-100 text-xs">
+                        Total: <span className="font-bold">+{selectedInvestor.totalReturn}%</span>
+                      </span>
+                      <span className="text-purple-100 text-xs">
+                        Monthly: <span className="font-bold">+{selectedInvestor.monthlyReturn}%</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-white">{selectedInvestor.successRate}%</div>
+                  <p className="text-purple-100 text-xs">Success Rate</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Account Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card className="bg-slate-800 border-slate-700">
@@ -39,7 +130,7 @@ export default async function DashboardPage() {
               </div>
               <p className="text-xs text-green-400 flex items-center">
                 <TrendingUp className="h-3 w-3 mr-1" />
-                Demo Account
+                {selectedAccountType ? selectedAccountType.name : "Demo Account"}
               </p>
             </CardContent>
           </Card>
